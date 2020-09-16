@@ -1,0 +1,374 @@
+; ACME 0.96.4
+; boot.a - Minimal version
+; boot0 (T0/S0) / boot1 (FLOAD) / boot2 (MAIN) 
+; by Grouik/French Touch and fenarinarsa/French Touch
+;
+; needs DISK II card in SLOT #6
+; 
+; 0.04
+
+!cpu 65c02
+!convtab "a2txt.bin"    ; incorporation table caractère APPLE II (normal) générale
+!sl "lbl_boot.txt"
+
+; =============================================================================
+; HARDWARE REQUIREMENTS
+; Autodection setup
+
+REQ_IIe = 1     ; 0 = IIc allowed / 1 = IIe required  (II/II+/IIgs will never pass)
+REQ_PAL = 0     ; 0 = 60Hz allowed / 1 = 50Hz required
+REQ_65C02 = 0   ; 0 = 6502 allowed / 1 = 65C02 required
+
+; =============================================================================
+; ZEROPAGE
+; -------------------------------------
+; USED IN ALL PARTS
+bRefresh    = $01   ; byte REFRESH RATE ($00/50Hz | $01/60Hz)
+bSLOT       = $02   ; numero SLOT * 0x10
+IntL        = $03   ; L value for INT delay
+IntH        = $04   ; H value for INT delay
+
+; FAST LOAD
+PISDEP   	= $0A   ; PISTE DE DEPART
+SECDEP   	= $0B   ; SECTEUR DE DEPART
+BUFFER   	= $0C 	; Buffer LOW+HIGH ; + $0D
+TOTSEC   	= $0E	; TOTAL DES SECTEURS A CHARGER
+CURTRK1  	= $0F	; piste de départ DRIVE 1 - A INITIALISER A ZERO pour le premier appel !
+
+; -------------------------------------
+; PART SPECIFIC
+; Temp
+OUT2        = $12   ; +$13
+Temp        = $FF
+; =============================================================================
+; SYSCONST
+VERTBLANK   = $C019 ;
+; -------------------------------------
+; CONST
+MAIN        = $6000     ; main program to run once boot.b is done
+FLOAD       = $FC00     ; where to put the FLOAD routine
+L_MODEL     = $0480
+L_CPU       = $0580
+L_FRQ       = $0680
+L_MB        = $0780
+L_FT        = $07D0
+
+; -------------------------------------
+
+        *= $800 ; ORG = $800
+
+!byte 03        ; reserved byte: number of 256 bytes sectors to load for boot.b
+
+START
+!zone
+
+; here the floppy drive motor is running, x = 60 (if slot 6)
+
+	; $801/$802/$803
+;	JMP INIT		; first run, we do all the init sequence
+;	; BOOT 1 (FLOAD)    
+;	DEC OffHi		;                                                             
+;LOAD    LDA OffHi
+;	CMP #(>FLOAD-1)	; are we done? 
+;	BEQ +
+;	STA $27
+;	LDA nSector	; n Sectors
+;	STA $3D
+;MODSLOT	JMP $C65C       ; reading with the Disk II ROM 
+                        ; the ROM rout ends with a JMP $801
+			; /!\ using ZP $26,$27,$2B,$3C,$3D,$40,$41       
+;+
+	; BOOT 2 (MAIN)
+        ; LOADING DEMO WITH FLOAD. TRACK 1 SECTOR 0
+;	LDX #$00                
+;	STX SECDEP	; sector
+;	STX CURTRK1
+;	STX BUFFER	; buffer low = $00
+;	INX		; = 1
+;	STX PISDEP	; track 
+;	LDA #>MAIN	; 
+;	STA BUFFER+1	; buffer high = $D00
+;	LDA #30		; # of sectors to load
+;	STA TOTSEC              
+;	JSR FLOAD	; loading
+	
+;	JMP MAIN	; saut Boot 2. Voilà c'est fini !                                        
+
+INIT    ;STX bSLOT       ; on sauvegarde le numero du SLOT*0x10
+        ; ---------
+        ; modifying calling address for ROM DISK II based on slot#
+        ;TXA
+        ;LSR
+        ;LSR
+        ;LSR
+        ;LSR                     ; $x0 -> $0x
+        ;ORA #$C0                ; $0x -> $Cx
+        ;STA MODSLOT+2           ; saving
+
+        JSR $FC58       ; HOME (ROM)
+
+        LDA #<L_FT
+        STA print_d+1
+        LDA #>L_FT
+        STA print_d+2
+        LDA #<str_FT
+        STA print_s+1
+        LDA #>str_FT
+        STA print_s+2
+        JSR PRINT
+
+Model
+        LDA #<L_MODEL
+        STA print_d+1
+        LDA #>L_MODEL
+        STA print_d+2
+        LDA #<str_AppleII
+        STA print_s+1
+        LDA #>str_AppleII
+        STA print_s+2
+
+        ; APPLE II MODEL DETECTION
+        LDA $FBB3
+        CMP #$06                ; IIe/IIc/IIGS = 06 
+        BEQ .notII
+        CMP #$EA
+        BNE .endmodel
+        LDX #'+'
+
+        JMP .endmodel
+
+.notII
+        LDX #'e'
+        LDA $FBC0
+        BNE .notIIc
+        LDX #'c'
+        BRA .endmodel
+.notIIc ; IIgs ou IIe ? 
+        SEC
+        JSR $FE1F               ; TEST GS 
+        BCS .endmodel
+        ; IIgs
+        LDX #'g'
+        STX str_AppleIIm
+        LDX #'s'
+        STX str_AppleIIm+1
+        JSR PRINT
+        JMP *           ; IIgs stops here
+
+.endmodel
+        STX str_AppleIIm
+        JSR PRINT
+
+CPU
+        LDA #<L_CPU
+        STA print_d+1
+        LDA #>L_CPU
+        STA print_d+2
+        ; 65C02 CPU DETECTION
+        SED             ; BCD mode
+        LDA #$99
+        CLC
+        ADC #$01
+        BMI .c6502      ; 6502
+        CLD             ; binary mode
+
+        LDA #<str_CPUb
+        STA print_s+1
+        LDA #>str_CPUb
+        STA print_s+2
+        JSR PRINT
+        BRA .endcpu
+
+.c6502  LDA #<str_CPUa
+        STA print_s+1
+        LDA #>str_CPUa
+        STA print_s+2
+        JSR PRINT
+
+.endcpu
+        LDA str_AppleIIm
+        CMP #'+'
+        BEQ +
+        CMP #' '
+        BEQ +
+        JMP Frequency
++       JMP *           ; Apple II and II+ stops here
+
+Frequency
+        LDA $FBC0
+        BEQ +
+        JMP Frequency_IIe
++       JMP Frequency_IIc
+
+        !align 255,0
+
+Frequency_IIe
+        ; REFRESH FREQUENCY DETECTION
+        LDA #$7F                ; IIe
+-       CMP VERTBLANK       
+        BPL -                   ; wait for end of VBL                                
+-       CMP VERTBLANK        
+        BMI -                   ; wait for end of display
+
+--      INC COUNTREF            ; 6 ; inc counter
+
+        LDX #$09                ;                           
+-       DEX                     ;                   
+        BNE -                   ; = 46 cycles
+                                ; 6 + 46 + 4 + 3 + 4 + 3 = 65 !
+
+        LDA COUNTREF            ; 4
+
+        LDA #$7F                ; 3
+        CMP VERTBLANK           ; 4
+        BPL   --                ; 3 => looping while we are in VBL
+
+        LDA COUNTREF
+        CMP #72                 ; >= 72 then 50 HZ (120*65 cycles of VBL)
+        BCS frq50Hz
+        JMP frq60Hz
+
+Frequency_IIc
+        SEI             ; disable interrupts
+ 	STA $C079 	; enable IOU access
+ 	STA $C05B 	; enable VBL int
+ 	STA $C078 	; disable IOU access
+        LDA $C070       ; reset VSYNC IRF (Interrupt Flag)
+
+        ; REFRESH FREQUENCY DETECTION
+-       LDA VERTBLANK   ; wait for VSYNC IRQ (Interrupt Request)
+        BPL -
+        LDA $C070       ; reset VSYNC IRF
+
+--      INC COUNTREF            ; 6 ; inc counter
+        LDX #196                ; 3         )               
+-       DEX                     ; 2*196     )             
+        BNE -                   ; 3*196 + 2 ) = 985 cycles
+        NOP                     ; 2
+        LDA VERTBLANK           ; 4
+        BPL --                  ; 3 => looping while no VSYNC IRQ
+        ; 6 + 985 + 2 + 4 + 3 = 1000 cycles
+
+ 	STA $C079 	; enable IOU access
+ 	STA $C05A 	; disable VBL int
+ 	STA $C078 	; disable IOU access
+        LDA $C070       ; reset VSYNC IRF
+
+        LDA COUNTREF
+        STA L_FRQ+39    ; debug
+        CMP #20                 ; frame is >= 20000 cycles, then 50Hz
+                                ; PAL = 20280 cycles
+                                ; NTSC = 17030 cycles
+        BCS frq50Hz
+        JMP frq60Hz
+
+frq50Hz
+        LDX #'5'
+        STX str_FRQm
+frq60Hz 
+        ; print result
+        LDA #<L_FRQ
+        STA print_d+1
+        LDA #>L_FRQ
+        STA print_d+2
+        LDA #<str_FRQ
+        STA print_s+1
+        LDA #>str_FRQ
+        STA print_s+2
+        JSR PRINT  
+
+Mockingboard
+        ; MOCKINGBOARD DETECTION (->OUT2)
+        LDA str_AppleIIm
+        CMP #'c'
+        BNE .noMockingboard4c
+        LDA #$FF
+        STA $C403       ; activate MB 4c (IIc)
+        STA $C404
+
+.noMockingboard4c
+        LDA #00
+        STA OUT2
+        LDX #'7'          
+bdet    LDA #$07                ; start from $C7 down to $C1
+        ORA #$C0                ; -> $Cx
+        STA OUT2+1
+        LDY #04                 ; $CX04
+        LDA (OUT2),Y            ; timer 6522 (Low Order Counter) - it's a countdown!
+        STA Temp                ; 3 cycles
+        LDA (OUT2),Y            ; + 5 cycles = 8 cycles between two timer access
+        SEC                     ; 
+        SBC Temp                ; 
+        CMP #$F8                ; -8 (countdown) ?
+        BEQ +
+        DEX
+        DEC bdet+1              ; testing next "slot"
+        BNE bdet                ; looping from 7 to 1
+        LDX #'X'
++       STX str_MBm
+
+        ; print result
+        LDA #<L_MB
+        STA print_d+1
+        LDA #>L_MB
+        STA print_d+2
+        LDA #<str_MB
+        STA print_s+1
+        LDA #>str_MB
+        STA print_s+2
+        JSR PRINT       
+     
+   
+
+end     JMP *
+
+        ; LOADING fload.b FROM DISK
+
+ ;       LDA $C083
+;	LDA $C083		; write/read to RAM bank2 (Langage Card)
+;
+;	LDA #$CE	; on écrit DEC nSector en $801 
+;	STA $801	; pour que le JMP $801 en fin de routine
+;	LDA #<nSector	; en $C605
+;	STA $802	; fasse une boucle avec le code en $801
+;	LDA #>nSector	;
+;	STA $803
+;	LDX #$60	; SLOT#6*$10
+;	JMP LOAD	; FLOAD call (will return at $801)
+
+;BADGUY  STX $403        ; Error code. A=Apple II model, C=CPU, M=Mockingboard
+ ;       LDA #'K'
+  ;      STA $400
+   ;     LDA #'O'
+    ;    STA $401
+;-       BNE -             ; stopping here
+
+;OffHi       !byte 0xFF    ; offset dernier secteur pour lecture BOOT1 (FLOAD)
+;nSector     !byte 0x04    ; n du dernier sector à lire (ordre inverse) pour BOOT1 (FLOAD)
+COUNTREF    !byte 0x00  ; compteur routine detect refresh
+
+PRINT   LDX #0
+print_s LDA str_AppleII,X
+        BNE print_d
+        RTS
+print_d STA $400,X
+        INX
+        JMP print_s
+
+str_AppleII     !text "       MODEL: II"
+str_AppleIIm    !text "  "
+                !byte 0
+str_CPUa        !text "         CPU: 6502"
+                !byte 0
+str_CPUb        !text "         CPU: 65C02"
+                !byte 0
+str_MB          !text "MOCKINGBOARD: "
+str_MBm         !text "S "
+                !byte 0
+str_FRQ         !text "   VIDEO FRQ: "
+str_FRQm        !text "60HZ"
+                !byte 0
+str_FT          !text "                    KESSESSAY 0.1/"
+                !byte $06,$14
+                !text "2020"
+                !byte 0

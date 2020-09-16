@@ -21,12 +21,10 @@ Boot on the floppy disk.
 
 Kessessay will display:
 
-On II/II+/IIgs:
 - The Apple II model
-
-On IIe/IIc:
-- The Apple II model
+(II+/IIe/IIc only:)
 - The CPU version: 6502 or 65C02
+(IIe/IIc only:)
 - The system video frequency: 50Hz (PAL) or 60Hz (NTSC)
 - Slots where a Mockingboard is detected (X if none found)
 

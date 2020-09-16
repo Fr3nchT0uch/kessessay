@@ -1,5 +1,11 @@
+; ACME 0.96.4
+; Kessessay - Main
+; Apple II specs detection
+; by Grouik/French Touch and fenarinarsa/French Touch
+; 2020
+
 !cpu 65c02
-!convtab "a2txt.bin"    ; incorporation table caractère APPLE II (normal) générale
+!convtab "a2txt.bin"    ; general ASCII LUT
 !sl "lbl_main.txt"
 
 ; ZEROPAGE
@@ -176,7 +182,7 @@ Frequency_IIc
         LDA $C070       ; reset VSYNC IRF
 
         LDA COUNTREF
-;        STA L_FRQ+39    ; debug
+;        STA L_FRQ+39    ; uncomment for debug
         CMP #20         ; frame is >= 20000 cycles, then 50Hz
                         ; PAL = 20280 cycles
                         ; NTSC = 17030 cycles
@@ -204,7 +210,7 @@ Mockingboard
         CMP #'c'
         BNE .noMockingboard4c
         LDA #$FF
-        STA $C403       ; activate MB 4c (IIc)
+        STA $C403       ; activates MB 4c (IIc)
         STA $C404
 
 .noMockingboard4c
@@ -254,7 +260,7 @@ print_d STA $400,X
         INX
         JMP print_s
 
-COUNTREF    !byte 0x00  ; compteur routine detect refresh
+COUNTREF    !byte 0x00  ; counter refresh detection
 
 str_AppleII     !text "       MODEL: II"
 str_AppleIIm    !text "  "

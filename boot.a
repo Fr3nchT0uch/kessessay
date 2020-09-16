@@ -2,10 +2,8 @@
 ; boot.a - Minimal version
 ; boot0 (T0/S0) / boot1 (FLOAD) / boot2 (MAIN) 
 ; by Grouik/French Touch and fenarinarsa/French Touch
-;
-; needs DISK II card in SLOT #6
-; 
-; 0.04
+; 2020
+
 
 !cpu 65c02
 !convtab "a2txt.bin"    ; incorporation table caractère APPLE II (normal) générale

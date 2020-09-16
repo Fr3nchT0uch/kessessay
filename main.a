@@ -90,8 +90,8 @@ CPU
         CLC
         ADC #$01
         BMI .c6502      ; 6502
-        CLD             ; binary mode
 
+        CLD             ; binary mode
         LDA #<str_CPUb
         STA print_s+1
         LDA #>str_CPUb
@@ -99,7 +99,8 @@ CPU
         JSR PRINT
         BRA .endcpu
 
-.c6502  LDA #<str_CPUa
+.c6502  CLD
+        LDA #<str_CPUa
         STA print_s+1
         LDA #>str_CPUa
         STA print_s+2
@@ -160,13 +161,13 @@ Frequency_IIc
         BPL -
         LDA $C070       ; reset VSYNC IRF
 
---      INC COUNTREF            ; 6 ; inc counter
-        LDX #196                ; 3         )               
--       DEX                     ; 2*196     )             
-        BNE -                   ; 3*196 + 2 ) = 985 cycles
-        NOP                     ; 2
-        LDA VERTBLANK           ; 4
-        BPL --                  ; 3 => looping while no VSYNC IRQ
+--      INC COUNTREF    ; 6 ; inc counter
+        LDX #196        ; 3         )               
+-       DEX             ; 2*196     )             
+        BNE -           ; 3*196 + 2 ) = 985 cycles
+        NOP             ; 2
+        LDA VERTBLANK   ; 4
+        BPL --          ; 3 => looping while no VSYNC IRQ
         ; 6 + 985 + 2 + 4 + 3 = 1000 cycles
 
  	STA $C079 	; enable IOU access
@@ -175,10 +176,10 @@ Frequency_IIc
         LDA $C070       ; reset VSYNC IRF
 
         LDA COUNTREF
-        STA L_FRQ+39    ; debug
-        CMP #20                 ; frame is >= 20000 cycles, then 50Hz
-                                ; PAL = 20280 cycles
-                                ; NTSC = 17030 cycles
+;        STA L_FRQ+39    ; debug
+        CMP #20         ; frame is >= 20000 cycles, then 50Hz
+                        ; PAL = 20280 cycles
+                        ; NTSC = 17030 cycles
         BCS frq50Hz
         JMP frq60Hz
 
@@ -209,8 +210,9 @@ Mockingboard
 .noMockingboard4c
         LDA #00
         STA OUT2
-        LDX #'7'          
-bdet    LDA #$07                ; start from $C7 down to $C1
+        LDX #0          
+bdet    LDA #$01                ; start from $C1 to $C7
+        INC .MBSlot+1           ; inc text slot #
         ORA #$C0                ; -> $Cx
         STA OUT2+1
         LDY #04                 ; $CX04
@@ -218,14 +220,18 @@ bdet    LDA #$07                ; start from $C7 down to $C1
         STA Temp                ; 3 cycles
         LDA (OUT2),Y            ; + 5 cycles = 8 cycles between two timer access
         SEC                     ; 
-        SBC Temp                ; 
+        SBC Temp                ;
         CMP #$F8                ; -8 (countdown) ?
-        BEQ +
-        DEX
-        DEC bdet+1              ; testing next "slot"
-        BNE bdet                ; looping from 7 to 1
-        LDX #'X'
-+       STX str_MBm
+        BNE +                   ; branch if not found
+        ; MB found
+.MBSlot LDA #'0'
+        STA str_MBm,X           ; add found slot to result string
+        INX
+        INX
++       INC bdet+1              ; testing next "slot"
+        LDY bdet+1
+        CPY #8
+        BNE bdet                ; looping from 1 to 7
 
         ; print result
         LDA #<L_MB
@@ -258,12 +264,12 @@ str_CPUa        !text "         CPU: 6502"
 str_CPUb        !text "         CPU: 65C02"
                 !byte 0
 str_MB          !text "MOCKINGBOARD: "
-str_MBm         !text "S "
+str_MBm         !text "X             "
                 !byte 0
 str_FRQ         !text "   VIDEO FRQ: "
 str_FRQm        !text "60HZ"
                 !byte 0
-str_FT          !text "                    KESSESSAY 0.1/"
+str_FT          !text "                    KESSESSAY 1.0/"
                 !byte $06,$14
                 !text "2020"
                 !byte 0

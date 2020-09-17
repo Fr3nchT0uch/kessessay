@@ -8,8 +8,12 @@
 !convtab "a2txt.bin"    ; general ASCII LUT
 !sl "lbl_main.txt"
 
+!source "macros.a"
+
 ; ZEROPAGE
 OUT2        = $12   ; +$13
+Model       = $14
+ROMversion  = $15
 Temp        = $FF
 
 ; =============================================================================
@@ -23,6 +27,17 @@ L_FRQ       = $0680
 L_MB        = $0780
 L_FT        = $07D0
 
+M_Apple2        = 0
+M_Apple2p       = 1
+M_Apple2Jp      = 2
+M_Apple3        = 3
+M_Apple2e       = 4
+M_Apple2eEn     = 5
+M_Apple2eOC     = 6
+M_Apple2c       = 7
+M_Apple2cp      = 8
+M_Apple2gs      = 9
+
 ; -------------------------------------
 
         *= $6000 ; ORG = $6000
@@ -31,61 +46,141 @@ L_FT        = $07D0
 START
 !zone
 
-        JSR $FC58
+        JSR $FC58       ; HOME
 
-        LDA #<L_FT
-        STA print_d+1
-        LDA #>L_FT
-        STA print_d+2
-        LDA #<str_FT
-        STA print_s+1
-        LDA #>str_FT
-        STA print_s+2
+        +modify str_FT,print_s
+        +modify L_FT,print_d
+        LDX #0
         JSR PRINT
 
-Model
-        LDA #<L_MODEL
-        STA print_d+1
-        LDA #>L_MODEL
-        STA print_d+2
-        LDA #<str_AppleII
-        STA print_s+1
-        LDA #>str_AppleII
-        STA print_s+2
+ModelCheck
+        +modify str_Apple2,print_s
+        +modify L_MODEL,print_d
+        LDX #0
+        jsr PRINT
 
         ; APPLE II MODEL DETECTION
+        ; https://retrocomputing.stackexchange.com/questions/357/how-can-i-programmatically-tell-which-version-of-apple-ii-my-code-is-on
         LDA $FBB3
-        CMP #$06                ; IIe/IIc/IIGS = 06 
+        CMP #$06                ; IIe/IIc/IIc+/IIgs = 06 
         BEQ .notII
-        CMP #$EA
-        BNE .endmodel
-        LDX #'+'
+        CMP #$C9
+        BNE .a2jplus
+        LDA $FB1E
+        CMP #$AD
+        BEQ .a2plus
 
-        JMP .endmodel
+        ; Apple III -> $FBB3=$EA, $FB1E=$8A
+        LDA M_Apple3
+        STA Model
+        +modify str_Apple3,print_s
+        JMP .printmodel
+        
+.a2jplus
+        ; Apple II J-Plus -> $FBB3=$C9
+        LDA M_Apple2Jp
+        STA Model
+        +modify str_Apple2Jp,print_s
+        JMP .printmodel
 
-.notII
-        LDX #'e'
-        LDA $FBC0
-        BNE .notIIc
-        LDX #'c'
-        BRA .endmodel
-.notIIc ; IIgs ou IIe ? 
+.a2plus
+        ; Apple II+ -> $FBB3=$EA, $FB1E=$AD
+        LDA M_Apple2Jp
+        STA Model
+        +modify str_Apple2p,print_s
+        JMP .printmodel
+
+.notII  LDA $FBC0
+        BEQ .IIc
+
+        ; IIe or IIgs?
         SEC
-        JSR $FE1F               ; TEST GS 
-        BCS .endmodel
-        ; IIgs
-        LDX #'g'
-        STX str_AppleIIm
-        LDX #'s'
-        STX str_AppleIIm+1
-        JSR PRINT
-        JMP *           ; IIgs stops here
+        JSR $FE1F               ; GS TEST 
+        BCC .IIgs
 
-.endmodel
-        STX str_AppleIIm
+.IIe    ; IIe/IIe Enhanced/IIe Option Card
+        LDA $FBC0
+        CMP #$EA
+        BNE .IIeEnh
+
+        ; IIe
+        LDA M_Apple2e
+        STA Model
+        +modify str_Apple2e,print_s
+        JMP .printmodel
+
+.IIeEnh ; $FBC0 should be $E0 (untested)
+        LDA $FBDD
+        CMP $02
+        BEQ .IIeOC
+
+        ; IIe Enhanced
+        LDA M_Apple2eEn
+        STA Model
+        +modify str_Apple2eEn,print_s
+        JMP .printmodel
+
+.IIeOC  ; IIe Option Card
+        LDA M_Apple2eOC
+        STA Model
+        +modify str_Apple2eOC,print_s
+        JMP .printmodel
+
+.IIgs   STY ROMversion
+        +modify str_Apple2gs,print_s
         JSR PRINT
+        LDA #M_Apple2gs
+        STA Model
+        BRA .checkROM
+
+.IIc    ; Apple IIc -> $FBB3=$06, $FBC0=$00
+        LDY $FBBF
+        CPY #$05
+        BEQ .IIcp
+        
+        LDA M_Apple2c
+        STA Model
+        +modify str_Apple2c,print_s
+        JSR PRINT
+        BRA .checkROM
+
+        ; IIc+
+.IIcp   LDA #M_Apple2cp
+        STA Model
+        +modify str_Apple2cp,print_s
+        BRA .printmodel
+
+.checkROM
+        ; ROM version
+        STY ROMversion
+        CPY #$00
+        BNE +
+        +modify str_ROM0,print_s
+        BRA .printmodel
++       CPY #$01
+        BNE +
+        +modify str_ROM1,print_s
+        BRA .printmodel
++       CPY #$03
+        BNE +
+        +modify str_ROM3,print_s
+        BRA .printmodel
++       CPY #$04
+        BNE +
+        +modify str_ROM4,print_s
+        BRA .printmodel
++       CPY #$FF
+        BNE .endmodel
+        +modify str_ROM255,print_s
+        ; BRA .printmodel
+
+.printmodel
+        JSR PRINT
+.endmodel
 
 CPU
+        +modify L_CPU,print_d
+
         LDA #<L_CPU
         STA print_d+1
         LDA #>L_CPU
@@ -113,13 +208,17 @@ CPU
         JSR PRINT
 
 .endcpu
-        LDA str_AppleIIm
-        CMP #'+'
-        BEQ +
-        CMP #' '
-        BEQ +
-        JMP Frequency
-+       JMP *           ; Apple II and II+ stops here
+        LDA Model
+
+        ; IIc+, IIgs stop here
+        CMP #M_Apple2cp
+        BEQ *                   
+        CMP #M_Apple2gs
+        BEQ *
+
+        CMP #M_Apple3+1
+        BCS Frequency           ; No Frequency test for II/II+/III
+        JMP Mockingboard
 
 Frequency
         LDA $FBC0
@@ -194,14 +293,9 @@ frq50Hz
         STX str_FRQm
 frq60Hz 
         ; print result
-        LDA #<L_FRQ
-        STA print_d+1
-        LDA #>L_FRQ
-        STA print_d+2
-        LDA #<str_FRQ
-        STA print_s+1
-        LDA #>str_FRQ
-        STA print_s+2
+        +modify str_FRQ,print_s
+        +modify L_FRQ,print_d
+        LDX #0
         JSR PRINT  
 
 Mockingboard
@@ -240,19 +334,14 @@ bdet    LDA #$01                ; start from $C1 to $C7
         BNE bdet                ; looping from 1 to 7
 
         ; print result
-        LDA #<L_MB
-        STA print_d+1
-        LDA #>L_MB
-        STA print_d+2
-        LDA #<str_MB
-        STA print_s+1
-        LDA #>str_MB
-        STA print_s+2
+        +modify str_MB,print_s
+        +modify L_MB,print_d
+        LDX #0
         JSR PRINT       
 
 end     JMP *
 
-PRINT   LDX #0
+PRINT   
 print_s LDA str_AppleII,X
         BNE print_d
         RTS
@@ -262,12 +351,45 @@ print_d STA $400,X
 
 COUNTREF    !byte 0x00  ; counter refresh detection
 
-str_AppleII     !text "       MODEL: II"
-str_AppleIIm    !text "  "
+str_Model       !text "       MODEL: "
                 !byte 0
-str_CPUa        !text "         CPU: 6502"
+str_Apple2      !text "Apple II"
                 !byte 0
-str_CPUb        !text "         CPU: 65C02"
+str_Apple2p     !text "Apple II+"
+                !byte 0
+str_Apple2Jp    !text "Apple II J-Plus"
+                !byte 0
+str_Apple3      !text "Apple III"
+                !byte 0
+str_Apple2e     !text "Apple IIe"
+                !byte 0
+str_Apple2eEn   !text "Apple IIe Enhanced"
+                !byte 0
+str_Apple2eOC   !text "Apple IIe Option Card"
+                !byte 0
+str_Apple2c     !text "Apple IIc"
+                !byte 0
+str_Apple2cp    !text "Apple IIc+"
+                !byte 0
+str_Apple2gs    !text "Apple IIgs"
+                !byte 0
+str_ROM0        !text " (ROM 0)"
+                !byte 0
+str_ROM01       !text " (ROM 01)"
+                !byte 0
+str_ROM3        !text " (ROM 3)"
+                !byte 0
+str_ROM4        !text " (ROM 4)"
+                !byte 0
+str_ROM255      !text " (ROM 255)"
+                !byte 0
+str_CPU         !text "         CPU: "
+                !byte 0
+str_CPU6502     !text "6502"
+                !byte 0
+str_CPU65C02    !text "65C02"
+                !byte 0
+str_CPU65C816   !text "65C816"
                 !byte 0
 str_MB          !text "MOCKINGBOARD: "
 str_MBm         !text "X             "
@@ -275,7 +397,7 @@ str_MBm         !text "X             "
 str_FRQ         !text "   VIDEO FRQ: "
 str_FRQm        !text "60HZ"
                 !byte 0
-str_FT          !text "                    KESSESSAY 1.0/"
+str_FT          !text "                    KESSESSAY 1.1/"
                 !byte $06,$14
                 !text "2020"
                 !byte 0

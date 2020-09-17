@@ -81,27 +81,27 @@ ModelCheck
         BEQ .a2plus
 
         ; Apple III -> $FBB3=$EA, $FB1E=$8A
-        LDA M_Apple3
+        LDA #M_Apple3
         STA Model
         +modify str_Apple3,print_s
         JMP .printmodel
 
 .a2     ; Apple II (original)
-        LDA M_Apple2
+        LDA #M_Apple2
         STA Model
         +modify str_Apple2,print_s
         JMP .printmodel
         
 .a2jplus
         ; Apple II J-Plus -> $FBB3=$C9
-        LDA M_Apple2Jp
+        LDA #M_Apple2Jp
         STA Model
         +modify str_Apple2Jp,print_s
         JMP .printmodel
 
 .a2plus
         ; Apple II+ -> $FBB3=$EA, $FB1E=$AD
-        LDA M_Apple2Jp
+        LDA #M_Apple2Jp
         STA Model
         +modify str_Apple2p,print_s
         JMP .printmodel
@@ -120,7 +120,7 @@ ModelCheck
         BNE .IIeEnh
 
         ; IIe
-        LDA M_Apple2e
+        LDA #M_Apple2e
         STA Model
         +modify str_Apple2e,print_s
         JMP .printmodel
@@ -131,13 +131,13 @@ ModelCheck
         BEQ .IIeOC
 
         ; IIe Enhanced
-        LDA M_Apple2eEn
+        LDA #M_Apple2eEn
         STA Model
         +modify str_Apple2eEn,print_s
         JMP .printmodel
 
 .IIeOC  ; IIe Option Card
-        LDA M_Apple2eOC
+        LDA #M_Apple2eOC
         STA Model
         +modify str_Apple2eOC,print_s
         JMP .printmodel
@@ -156,7 +156,7 @@ ModelCheck
         CPY #$05
         BEQ .IIcp
         
-        LDA M_Apple2c
+        LDA #M_Apple2c
         STA Model
         +modify str_Apple2c,print_s
         JSR PRINT
@@ -233,22 +233,23 @@ CPU
 .endcpu
 
         LDA Model
-
-        ; IIc+, IIgs stop here
-        CMP #M_Apple2cp
-        BEQ *                   
+        ; IIgs stop here      
         CMP #M_Apple2gs
         BEQ *
-
         CMP #M_Apple3+1
         BCS Frequency           ; No Frequency test for II/II+/III
-        JMP Mockingboard
+        JMP Frequency_end
 
 Frequency
-        LDA $FBC0
+        LDA Model
+        CMP #M_Apple2c
+        BNE +
+        JMP Frequency_IIc
++       CMP #M_Apple2cp
         BEQ +
         JMP Frequency_IIe
-+       JMP Frequency_IIc
++       ; IIc+ is 60Hz (US-only model)
+        JMP frq60Hz
 
         !align 255,0
 
@@ -320,7 +321,8 @@ frq60Hz
         +modify str_FRQ,print_s
         +modify L_FRQ,print_d
         LDX #0
-        JSR PRINT  
+        JSR PRINT
+Frequency_end
 
 Mockingboard
         ; MOCKINGBOARD DETECTION (->OUT2)
@@ -423,6 +425,14 @@ str_FRQ         !text "   VIDEO FRQ: "
 str_FRQm        !text "60HZ"
                 !byte 0
 str_Prompt      !text "      PROMPT: ]"
+                !byte 0
+str_RAM         !text "  SYSTEM RAM: "
+                !byte 0
+str_RAM48k      !text "48K"
+                !byte 0
+str_RAM64k      !text "64K"
+                !byte 0
+str_RAM128k     !text "128K"
                 !byte 0
 str_FT          !text "                    KESSESSAY 1.1/"
                 !byte $06,$14

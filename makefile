@@ -26,7 +26,7 @@ $(DISKNAME): boot.b main.b
 # main 	T0 S1 	> $6000 (M)
 	$(DIRECTWRITE) $(DISKNAME) main.b 0 1 + p
 # (optional) Send DSK to a Toshiba FlashAir SD Card
-#	$(TRANSAIR) $(DISKNAME)
+	$(TRANSAIR) $(DISKNAME)
 # (optional) Copy debug labels for AppleWin
 	copy lbl_main.txt $(APPLEWINPATH)\A2_USER1.SYM
 # (optional) Run AppleWin

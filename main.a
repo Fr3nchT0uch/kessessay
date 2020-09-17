@@ -23,9 +23,10 @@ VERTBLANK   = $C019 ;
 ; CONST
 L_MODEL     = $0480
 L_CPU       = $0580
-L_FRQ       = $0680
-L_MB        = $0780
-L_PROMPT    = $04A8
+L_RAM       = $0680
+L_FRQ       = $0780
+L_MB        = $04A8
+L_PROMPT    = $05A8
 L_FT        = $07D0
 
 M_Apple2        = 0
@@ -236,6 +237,26 @@ CPU
         ; IIgs stop here      
         CMP #M_Apple2gs
         BEQ *
+
+RAM     ; RAM detection
+        ; Only IIc/IIc+ supported right now
+
+        LDA Model
+        CMP #M_Apple2c
+        BEQ RAM128K
+        CMP #M_Apple2cp
+        BEQ RAM128K
+        JMP EndRAM
+
+RAM128K +modify str_RAM,print_s
+        +modify L_RAM,print_d
+        LDX #0
+        JSR PRINT
+        +modify str_RAM128k,print_s
+        JSR PRINT
+
+EndRAM
+        LDA Model
         CMP #M_Apple3+1
         BCS Frequency           ; No Frequency test for II/II+/III
         JMP Frequency_end

@@ -235,9 +235,10 @@ CPU     !zone
 .endcpu
 
         LDA Model
-        ; IIgs stop here      
         CMP #M_Apple2gs
-        BEQ *
+        BNE RAM
+        ; IIgs skips RAM and Frequency 
+        JMP Mockingboard
 
 RAM     !zone
         ; RAM detection

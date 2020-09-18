@@ -61,6 +61,7 @@ START
         JSR PRINT
 
 ModelCheck
+        !zone
         +modify str_Model,print_s
         +modify L_MODEL,print_d
         LDX #0
@@ -197,7 +198,7 @@ ModelCheck
         JSR PRINT
 .endmodel
 
-CPU
+CPU     !zone
         +modify L_CPU,print_d
         +modify str_CPU,print_s
         LDX #0
@@ -238,24 +239,59 @@ CPU
         CMP #M_Apple2gs
         BEQ *
 
-RAM     ; RAM detection
-        ; Only IIc/IIc+ supported right now
+RAM     !zone
+        ; RAM detection
+        ; Only some models supported right now
+        ; http://www.1000bit.it/support/manuali/apple/technotes/misc/tn.misc.02.html
+
+        +modify str_RAM,print_s
+        +modify L_RAM,print_d
+        LDX #0
+        JSR PRINT
 
         LDA Model
+        CMP #M_Apple2
+        BEQ .checkLC
+        CMP #M_Apple2p
+        BEQ .checkLC
+        CMP #M_Apple2Jp
+        BEQ .checkLC
+        CMP #M_Apple3
+        BEQ RAM48K
         CMP #M_Apple2c
         BEQ RAM128K
         CMP #M_Apple2cp
         BEQ RAM128K
+        CMP #M_Apple2eOC
+        BEQ RAM128K
         JMP EndRAM
 
-RAM128K +modify str_RAM,print_s
-        +modify L_RAM,print_d
-        LDX #0
-        JSR PRINT
-        +modify str_RAM128k,print_s
-        JSR PRINT
+.checkLC
+        LDA $C08B       ; enable LC if present
+        LDA $C08B
+        LDA #$AA
+        STA $D000
+        EOR $D000
+        BNE RAM48K
+        LSR $D000
+        LDA #$AA
+        LSR
+        EOR $D000
+        BNE RAM48K
+        JMP RAM64K
 
+RAM48K  +modify str_RAM48k,print_s
+        JSR PRINT
+        JSR EndRAM
+
+RAM64K  +modify str_RAM64k,print_s
+        JSR PRINT
+        JSR EndRAM
+
+RAM128K +modify str_RAM128k,print_s
+        JSR PRINT
 EndRAM
+
         LDA Model
         CMP #M_Apple3+1
         BCS Frequency           ; No Frequency test for II/II+/III

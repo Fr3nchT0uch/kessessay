@@ -265,7 +265,29 @@ RAM     !zone
         BEQ RAM128K
         CMP #M_Apple2eOC
         BEQ RAM128K
-        JMP EndRAM
+
+
+.check128K
+        LDA #$00
+        STA 0
+        STA $C009       ; AltZP on
+        ; first test
+        LDA $AA         ; Try to put ̂$AA in AUX
+        STA 0
+        EOR 0
+        BNE .no128k     ; if not zero, then $AA was not written
+        ; second test
+        LDA $55
+        LSR 0
+        EOR 0
+        BNE .no128k
+        ; third test
+        STA $C008       ; AltZP off
+        LDA 0
+        BEQ RAM128K     ; if zp00=$00 then $55 is in AUX
+.no128k STA $C008       ; AltZP off
+        JMP RAM64K
+
 
 .checkLC
         LDA $C08B       ; enable LC if present
@@ -278,8 +300,8 @@ RAM     !zone
         LDA #$AA
         LSR
         EOR $D000
-        BNE RAM48K
-        JMP RAM64K
+        BEQ RAM64K
+        ; JMP RAM48K
 
 RAM48K  +modify str_RAM48k,print_s
         JSR PRINT
@@ -482,8 +504,8 @@ str_MBm         !text "X             "
 str_FRQ         !text "   VIDEO FRQ: "
 str_FRQm        !text "60HZ"
                 !byte 0
-str_Prompt      !text "      PROMPT: ]"
-                !byte 0
+str_Prompt      !text "     CHARSET: "
+                !byte $80+$23,$80+$40,$80+$5B,$80+$5C,$80+$5D,$80+$5E,$80+$60,$80+$7B,$80+$7C,$80+$7D,$80+$7E,0
 str_RAM         !text "  SYSTEM RAM: "
                 !byte 0
 str_RAM48k      !text "48K"

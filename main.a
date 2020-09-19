@@ -241,8 +241,7 @@ CPU     !zone
         JMP Mockingboard
 
 RAM     !zone
-        ; RAM detection
-        ; Only some models supported right now
+        ; System RAM detection (no extension supported above 128k)
         ; http://www.1000bit.it/support/manuali/apple/technotes/misc/tn.misc.02.html
 
         +modify str_RAM,print_s

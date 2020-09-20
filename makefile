@@ -31,7 +31,8 @@ $(DISKNAME): boot.b main.b
 	copy lbl_main.txt "$(APPLEWINPATH)\A2_USER1.SYM"
 # (optional) Run AppleWin
 	copy $(DISKNAME) "U:\Apple II\$(DISKNAME)"
-	$(EMULATOR) -d1 test.dsk
+	$(EMULATOR)
+#-d1 test.dsk
 
 main.b: main.a
 	$(ACME) main.b main.a

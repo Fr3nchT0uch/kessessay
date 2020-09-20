@@ -17,7 +17,7 @@ bSLOT       = $02   ; SLOT * 0x10
 ; -------------------------------------
 ; CONST
 MAIN        = $6000     ; main program to run once boot.b is done
-MAIN_SIZE   = 6    ; in sectors
+MAIN_SIZE   = 7    ; in sectors
 
 ; -------------------------------------
 

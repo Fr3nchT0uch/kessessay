@@ -258,13 +258,15 @@ RAM     !zone
         BEQ .checkLC
         CMP #M_Apple3
         BEQ RAM48K
-        CMP #M_Apple2c
-        BEQ RAM128K
-        CMP #M_Apple2cp
-        BEQ RAM128K
-        CMP #M_Apple2eOC
-        BEQ RAM128K
+        JMP checkRAMWorks
+;       CMP #M_Apple2c
+;        BEQ RAM128K
+;       CMP #M_Apple2cp
+;       BEQ RAM128K
+;       CMP #M_Apple2eOC
+;       BEQ RAM128K
 
+ 
 
 .check128K
         LDA #$00
@@ -312,12 +314,108 @@ RAM64K  +modify str_RAM64k,print_s
 
 RAM128K +modify str_RAM128k,print_s
         JSR PRINT
+        JSR EndRAM
+
+checkRAMWorks
+       STX Temp
+BankSel1 = $C071
+BankSel2 = $C073
+;MaxMem  = 8*16
+
+        STA $C009
+        LDY #$7F
+.findbanks
+        STY BankSel1
+        STY BankSel2
+        STY $00
+        TYA
+        EOR #$FF
+        STA $01
+        DEY
+        BPL .findbanks
+        LDA #$7F
+        TAY
+        LDX #0
+.findthem
+        STY BankSel1
+        STY BankSel2
+        ;STA BankSel+3
+        CPY $00
+        BNE .notone
+        TYA
+        EOR #$FF
+        CMP $01
+        BNE .notone
+        INX
+ ;       TYA
+;        STA BankTbl,X
+ ;       CPX #MaxMem
+ ;       BCS .done
+.notone DEY
+        BPL .findthem
+.done   LDA #$00
+        STA BankSel1
+        STA BankSel2
+        STA $C008
+        STX $400
+        STX $401
+        ;LDX Temp
+        ; print extra RAM
+        LDA #$00
+        STA $00
+        STA $01
+        SED
+.add    CLC
+        LDA $00
+        ADC #$64
+        STA $00
+        LDA $01
+        ADC #$00
+        STA $01
+        DEC $400
+        BPL .add
+        CLD
+        CLC
+        LDA $01
+        LSR
+        LSR
+        LSR
+        LSR
+        ADC #'0'
+        STA str_RAMextra
+        CLC
+        LDA $01
+        AND #$0F
+        ADC #'0'
+        STA str_RAMextra+1
+        CLC
+        LDA $00
+        LSR
+        LSR
+        LSR
+        LSR
+        ADC #'0'
+        STA str_RAMextra+2
+        CLC
+        LDA $00
+        AND #$0F
+        ADC #'0'
+        STA str_RAMextra+3
+        LDA #'K'
+        STA str_RAMextra+4
+        LDX Temp
+        +modify str_RAMextra,print_s
+        JSR PRINT
+        JSR EndRAM
+
 EndRAM
 
         LDA Model
         CMP #M_Apple3+1
         BCS Frequency           ; No Frequency test for II/II+/III
         JMP Frequency_end
+
+
 
 Frequency
         LDA Model
@@ -512,6 +610,8 @@ str_RAM48k      !text "48K"
 str_RAM64k      !text "64K"
                 !byte 0
 str_RAM128k     !text "128K"
+                !byte 0
+str_RAMextra    !text "     "
                 !byte 0
 str_FT          !text "                    KESSESSAY 1.1/"
                 !byte $06,$14
